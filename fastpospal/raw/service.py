@@ -9,6 +9,7 @@ from fastpospal.raw.builders import (
     customer_for_update,
     new_customer_payload,
     new_product_payload,
+    new_supplier_payload,
     product_for_update,
 )
 from fastpospal.raw.client import PospalClient
@@ -145,6 +146,8 @@ class PospalService:
         page_index: int = 1,
         page_size: int = 20,
         enable: str = "1",
+        order_column: str = "",
+        asc: bool = False,
         user_id: int | None = None,
     ) -> dict[str, Any]:
         uid = user_id or self.client.user_id
@@ -158,6 +161,9 @@ class PospalService:
             "pageIndex": page_index,
             "pageSize": page_size,
         }
+        if order_column:
+            criteria["orderColumn"] = order_column
+            criteria["asc"] = "true" if asc else "false"
         summary = self.client.ajax("/Product/LoadProductSummary", criteria)
         page = self.client.ajax("/Product/LoadProductsByPage", criteria)
         products = parse_product_rows(page.get("contentView") or "")
@@ -269,6 +275,8 @@ class PospalService:
         page_index: int = 1,
         page_size: int = 20,
         customer_type: str = "1",
+        order_column: str = "createdDate",
+        asc: bool = False,
         create_user_id: int | None = None,
     ) -> dict[str, Any]:
         uid = create_user_id if create_user_id is not None else (self.client.user_id or "")
@@ -284,8 +292,8 @@ class PospalService:
             **query,
             "pageIndex": page_index,
             "pageSize": page_size,
-            "orderColumn": "createdDate",
-            "asc": "false",
+            "orderColumn": order_column,
+            "asc": "true" if asc else "false",
         }
         summary = self.client.ajax("/Customer/LoadCustomerSummary", query)
         page = self.client.ajax("/Customer/LoadCustomersByPage", criteria)
@@ -372,6 +380,8 @@ class PospalService:
         keyword: str = "",
         page_index: int = 1,
         page_size: int = 20,
+        order_column: str = "",
+        asc: bool = False,
         user_id: int | None = None,
     ) -> dict[str, Any]:
         uid = user_id or self.client.user_id
@@ -385,6 +395,9 @@ class PospalService:
             "pageIndex": page_index,
             "pageSize": page_size,
         }
+        if order_column:
+            criteria["orderColumn"] = order_column
+            criteria["asc"] = "true" if asc else "false"
         summary = self.client.ajax("/Inventory/LoadStockCountSummary", criteria)
         page = self.client.ajax("/Inventory/LoadStockCountByPage", criteria)
         items = parse_html_table(page.get("contentView") or "")
@@ -492,6 +505,70 @@ class PospalService:
             raise RuntimeError(result.get("msg") or "加载供应商失败")
         raw = result.get("suppliersJson") or "[]"
         return json.loads(raw) if isinstance(raw, str) else raw
+
+    def get_supplier_number(self) -> str:
+        result = self.client.ajax("/Supplier/GetRandomCustomerNumber", {})
+        if not result.get("successed"):
+            raise RuntimeError(result.get("msg") or "获取供货商编号失败")
+        number = result.get("number")
+        if not number:
+            raise RuntimeError("获取供货商编号失败")
+        return str(number)
+
+    def save_supplier(self, payload: dict[str, Any]) -> dict[str, Any]:
+        result = self.client.ajax(
+            "/Supplier/SaveSupplier",
+            {
+                "supplierJson": json.dumps(payload, ensure_ascii=False),
+                "getSyncStores": "true",
+            },
+        )
+        if not result.get("successed"):
+            raise RuntimeError(result.get("msg") or "保存供货商失败")
+        return result
+
+    def create_supplier(
+        self,
+        name: str,
+        *,
+        linkman: str = "",
+        tel: str = "",
+        address: str = "",
+        remarks: str = "",
+        business_mode: str = "0",
+        settlement_type: str = "2",
+    ) -> dict[str, Any]:
+        uid = self.client.user_id
+        if not uid:
+            raise RuntimeError("未获取到 userId")
+        payload = new_supplier_payload(
+            user_id=uid,
+            name=name,
+            number=self.get_supplier_number(),
+            linkman=linkman,
+            tel=tel,
+            address=address,
+            remarks=remarks,
+            business_mode=business_mode,
+            settlement_type=settlement_type,
+        )
+        result = self.save_supplier(payload)
+        supplier_id = result.get("supplierId")
+        supplier = next(
+            (s for s in self.list_suppliers(uid) if str(s.get("id")) == str(supplier_id)),
+            None,
+        )
+        return {
+            **result,
+            "supplierId": supplier_id,
+            "supplier": supplier,
+        }
+
+    def delete_supplier(self, supplier_id: int | str) -> dict[str, Any]:
+        result = self.client.ajax("/Supplier/DeleteSupplier", {"id": str(supplier_id)})
+        if not result.get("successed"):
+            raise RuntimeError(result.get("msg") or "删除供货商失败")
+        return result
 
     # ── 营业 / 销售报表 ────────────────────────────────────
 

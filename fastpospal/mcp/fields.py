@@ -81,6 +81,16 @@ ProductEnable = Annotated[
     str,
     Field(description="商品状态：1=启用（默认）, 0=禁用"),
 ]
+ProductOrderColumn = Annotated[
+    str,
+    Field(
+        description=(
+            "排序字段（服务端排序，非本地排序）：留空=默认顺序、sellPrice=售价、"
+            "buyPrice=进价、stock=库存数量、name=名称、barcode=条码"
+        ),
+        examples=["stock", "sellPrice"],
+    ),
+]
 ProductId = Annotated[
     int,
     Field(description="商品数字 ID（productId），来自 list_products 或 get_product"),
@@ -104,6 +114,21 @@ CustomerNumber = Annotated[
 CustomerType = Annotated[
     str,
     Field(description="会员筛选：1=启用（默认）, 0=禁用, 2=过期"),
+]
+CustomerOrderColumn = Annotated[
+    str,
+    Field(
+        description=(
+            "排序字段（服务端排序，非本地排序）：createdDate=注册时间（默认）、"
+            "money=余额、point=积分、principalMoney=本金、giftMoney=赠送金额、"
+            "name=姓名、tel=手机号"
+        ),
+        examples=["money", "point", "createdDate"],
+    ),
+]
+SortAsc = Annotated[
+    bool,
+    Field(description="是否升序；默认 false（降序，即从大到小/从新到旧）"),
 ]
 
 # ── 语义层通用 ────────────────────────────────────────────

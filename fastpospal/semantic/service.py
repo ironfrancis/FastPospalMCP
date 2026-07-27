@@ -243,6 +243,8 @@ class PospalSemanticService:
         keyword: str = "",
         shop_names: str | None = None,
         compact: bool = False,
+        order_column: str = "",
+        asc: bool = False,
     ) -> dict[str, Any]:
         user_id = resolve_shop_id(shop_names)
         result = self.raw.list_products(
@@ -250,6 +252,8 @@ class PospalSemanticService:
             page_index=max(1, page),
             page_size=min(max(1, size), 100),
             user_id=user_id,
+            order_column=order_column,
+            asc=asc,
         )
         products = result.get("products") or []
         payload = {

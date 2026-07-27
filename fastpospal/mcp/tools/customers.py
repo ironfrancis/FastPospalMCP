@@ -4,7 +4,14 @@ from typing import Any
 
 from fastpospal.mcp.instance import mcp
 from fastpospal.mcp.deps import get_service
-from fastpospal.mcp.fields import CustomerNumber, CustomerType, PageIndex, PageSize
+from fastpospal.mcp.fields import (
+    CustomerNumber,
+    CustomerOrderColumn,
+    CustomerType,
+    PageIndex,
+    PageSize,
+    SortAsc,
+)
 
 
 @mcp.tool
@@ -25,10 +32,14 @@ def pospal_list_customers(
     page_index: PageIndex = 1,
     page_size: PageSize = 20,
     customer_type: CustomerType = "1",
+    order_column: CustomerOrderColumn = "createdDate",
+    asc: SortAsc = False,
 ) -> dict[str, Any]:
-    """分页查会员列表。
+    """分页查会员列表，支持服务端排序。
 
     keyword 可搜卡号/姓名/手机；customer_type：1=启用, 0=禁用, 2=过期。
+    排序在服务端完成，不是本地排序：查"余额最高的会员"应传 order_column="money", asc=false，
+    取第一页即可拿到全店 Top N，不要通过翻页 + 本地比较来找最大/最小值（既慢又容易漏数据）。
     注意：summary 为全店会员统计，不能用于查时段充值；时段充值用 pospal_recharge_summary。
     """
     return get_service().list_customers(
@@ -36,6 +47,8 @@ def pospal_list_customers(
         page_index=page_index,
         page_size=page_size,
         customer_type=customer_type,
+        order_column=order_column,
+        asc=asc,
     )
 
 

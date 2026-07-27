@@ -111,3 +111,56 @@ def customer_for_update(customer: dict[str, Any], **changes: Any) -> dict[str, A
     if "customerExt" not in merged or merged["customerExt"] is None:
         merged["customerExt"] = {"sex": None}
     return merged
+
+
+def new_supplier_payload(
+    *,
+    user_id: int,
+    name: str,
+    number: str = "",
+    linkman: str = "",
+    tel: str = "",
+    address: str = "",
+    remarks: str = "",
+    business_mode: str = "0",
+    settlement_type: str = "2",
+) -> dict[str, Any]:
+    """构造 SaveSupplier 新建供货商 JSON（默认购销 + 按单结算）。"""
+    return {
+        "id": 0,
+        "enable": 1,
+        "number": number,
+        "name": name,
+        "pinyin": "",
+        "linkman": linkman,
+        "gender": "男",
+        "tel": tel,
+        "email": "",
+        "address": address,
+        "remarks": remarks,
+        "userId": user_id,
+        "promotionPayment": 1,
+        "businessMode": business_mode,
+        "deliveryFee": 0,
+        "fixedRebate": 0,
+        "supplierExt": {
+            "userId": user_id,
+            "settlementType": settlement_type,
+            "settlementValue": "",
+            "bankName": "",
+            "bankAccountName": "",
+            "bankAccount": "",
+            "taxpayerRegisterNumber": "",
+            "invoiceTitle": "",
+        },
+        "supplierStore": {
+            "enable": 0,
+            "canEditPrice": 1,
+            "isAllowReplaceProduct": 1,
+            "isAllowCreateProductRequest": 0,
+            "isAllowCreateShelvingApply": 0,
+            "isAllowCreateContractApply": 0,
+            "supplierUserId": None,
+            "supplierAccount": "",
+        },
+    }

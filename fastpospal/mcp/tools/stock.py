@@ -11,7 +11,9 @@ from fastpospal.mcp.fields import (
     PageIndex,
     PageSize,
     ProductKeyword,
+    ProductOrderColumn,
     ProductUid,
+    SortAsc,
 )
 
 
@@ -20,15 +22,21 @@ def pospal_list_stock(
     keyword: ProductKeyword = "",
     page_index: PageIndex = 1,
     page_size: PageSize = 20,
+    order_column: ProductOrderColumn = "",
+    asc: SortAsc = False,
 ) -> dict[str, Any]:
     """分页查全店库存列表（所有商品库存汇总）。
 
     查单个商品库存优先 pospal_sem_check_product_stock（按名称/条码即可）。
+    排序在服务端完成：查"库存最多/最少的商品"应传 order_column="stock", asc=false/true，
+    取第一页即可，不要翻遍全部商品再本地比较。
     """
     return get_service().list_stock(
         keyword=keyword,
         page_index=page_index,
         page_size=page_size,
+        order_column=order_column,
+        asc=asc,
     )
 
 

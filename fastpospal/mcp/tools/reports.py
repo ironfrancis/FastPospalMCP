@@ -25,6 +25,28 @@ def pospal_list_suppliers() -> list[dict[str, Any]]:
 
 
 @mcp.tool
+def pospal_create_supplier(
+    name: str,
+    linkman: str = "",
+    tel: str = "",
+    address: str = "",
+    remarks: str = "",
+) -> dict[str, Any]:
+    """【写】新增供货商。
+
+    默认经营方式=购销（businessMode=0），结算方式=按单结算（settlementType=2）。
+    返回 supplierId 与 supplier 摘要（name、tel、linkman 等）。
+    """
+    return get_service().create_supplier(
+        name,
+        linkman=linkman,
+        tel=tel,
+        address=address,
+        remarks=remarks,
+    )
+
+
+@mcp.tool
 def pospal_business_summary(
     begin_datetime: BeginDatetime,
     end_datetime: EndDatetime,

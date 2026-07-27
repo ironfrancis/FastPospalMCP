@@ -7,6 +7,7 @@ from fastpospal.mcp.deps import get_semantic
 from fastpospal.mcp.fields import (
     CategoryName,
     EndDate,
+    ProductOrderColumn,
     SemCompact,
     SemKeyword,
     SemLimit,
@@ -14,6 +15,7 @@ from fastpospal.mcp.fields import (
     SemSearch,
     SemSize,
     ShopNames,
+    SortAsc,
     StartDate,
 )
 
@@ -139,10 +141,14 @@ def pospal_sem_list_products_admin(
     keyword: SemKeyword = "",
     shop_names: ShopNames = "",
     compact: SemCompact = False,
+    order_column: ProductOrderColumn = "",
+    asc: SortAsc = False,
 ) -> dict[str, Any]:
     """管理员分页浏览完整商品列表。
 
     大范围浏览用本工具；按关键词找少量商品用 pospal_sem_find_products。
+    排序在服务端完成：查"库存最多/最少的商品"应传 order_column="stock", asc=false/true，
+    取第一页即可，不要翻遍全部商品再本地比较。
     """
     return get_semantic().list_products_admin(
         page=page,
@@ -150,6 +156,8 @@ def pospal_sem_list_products_admin(
         keyword=keyword,
         shop_names=shop_names or None,
         compact=compact,
+        order_column=order_column,
+        asc=asc,
     )
 
 

@@ -34,6 +34,7 @@ EXPECTED_TOOLS = {
     "pospal_list_stock_flows",
     "pospal_set_product_stock_limit",
     "pospal_list_suppliers",
+    "pospal_create_supplier",
     "pospal_business_summary",
     "pospal_recharge_summary",
     "pospal_list_recharge_logs",

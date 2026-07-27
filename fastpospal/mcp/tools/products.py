@@ -12,6 +12,8 @@ from fastpospal.mcp.fields import (
     ProductEnable,
     ProductId,
     ProductKeyword,
+    ProductOrderColumn,
+    SortAsc,
 )
 
 
@@ -39,17 +41,23 @@ def pospal_list_products(
     page_index: PageIndex = 1,
     page_size: PageSize = 20,
     enable: ProductEnable = "1",
+    order_column: ProductOrderColumn = "",
+    asc: SortAsc = False,
 ) -> dict[str, Any]:
     """分页查询商品列表（原始层，含完整字段）。
 
     返回 products 数组与 totalRecord。按名称/条码模糊查找优先 pospal_sem_find_products；
     已知 productId 查详情用 pospal_get_product。
+    排序在服务端完成：查"库存最多/最少的商品"应传 order_column="stock"，取第一页即可，
+    不要翻遍全部商品再本地比较。
     """
     return get_service().list_products(
         keyword=keyword,
         page_index=page_index,
         page_size=page_size,
         enable=enable,
+        order_column=order_column,
+        asc=asc,
     )
 
 
