@@ -1,6 +1,6 @@
 [project]
 name = "fastpospal"
-version = "0.2.1"
+version = "0.2.2"
 description = "银豹 PosPal Python SDK 与 MCP 服务"
 readme = "README.md"
 requires-python = ">=3.11"
