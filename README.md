@@ -140,7 +140,7 @@ Agent 将自动调用对应 MCP 工具。
 
 ### 发布到生产（GitHub Actions）
 
-主路径：push 到 `main` 后自动 **patch bump** → 构建镜像 → SSH `docker load` → **覆盖服务器 `.env`** → compose 重启。
+主路径：push 到 `main` 后，在 **haqyd self-hosted runner** 上自动 **patch bump** → 构建镜像 → SSH `docker load` → **覆盖服务器 `.env`** → compose 重启（避免 GitHub 托管 runner 跨国传镜像过慢）。
 
 首次或密钥变更时，在本机同步 Secrets（需已 `gh auth login`）：
 

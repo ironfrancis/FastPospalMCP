@@ -1,3 +1,5 @@
+# Deploy：构建与 SSH 推送跑在 haqyd self-hosted（与 opcfeed 同机标签）。
+# Runner：仓库已注册 haqyd-fastpospal，标签 [self-hosted, Linux, X64, haqyd]
 name: Deploy
 
 on:
@@ -18,7 +20,7 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       (github.event.head_commit != null &&
        !contains(github.event.head_commit.message, '[skip ci]'))
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64, haqyd]
     timeout-minutes: 45
 
     steps:
