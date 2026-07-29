@@ -106,8 +106,29 @@ def resolve_category_id(
     return None
 
 
+def pick_sales_quantity_column(columns: list[str]) -> str | None:
+    """Pick quantity column; ReportV2 HTML often uses totoalProductNum (PosPal typo)."""
+    for preferred in ("销售数量", "totoalProductNum", "totalProductNum", "productNum"):
+        if preferred in columns:
+            return preferred
+    for column in columns:
+        if any(token in column for token in ("占比", "利润率", "率", "金额", "Amount", "Price")):
+            continue
+        if "数量" in column or column.lower().endswith("num") or "quantity" in column.lower():
+            return column
+    return None
+
+
 def pick_sales_amount_column(columns: list[str]) -> str | None:
-    for preferred in ("实收金额", "销售金额", "销售总额", "销售额", "商品总售价"):
+    for preferred in (
+        "实收金额",
+        "销售金额",
+        "销售总额",
+        "销售额",
+        "商品总售价",
+        "totalAmount",
+        "totalOriginalPrice",
+    ):
         if preferred in columns:
             return preferred
     for column in columns:
@@ -117,6 +138,13 @@ def pick_sales_amount_column(columns: list[str]) -> str | None:
             continue
         if any(token in column for token in ("实收金额", "销售金额", "销售总额", "销售额")):
             return column
+    return None
+
+
+def pick_sales_profit_column(columns: list[str]) -> str | None:
+    for preferred in ("利润", "totalProfit", "TotalProfit"):
+        if preferred in columns:
+            return preferred
     return None
 
 

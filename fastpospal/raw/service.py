@@ -648,6 +648,7 @@ class PospalService:
         begin_datetime: str,
         end_datetime: str,
         order_source: str = "",
+        keyword: str = "",
         page_index: int = 1,
         page_size: int = 20,
         user_id: int | None = None,
@@ -661,6 +662,7 @@ class PospalService:
             "orderSource": order_source,
             "pageIndex": page_index,
             "pageSize": page_size,
+            "keyword": keyword or "",
         }
         summary = self.client.ajax("/Report/LoadProductSaleDetailsSummary", criteria)
         page = self.client.ajax("/Report/LoadProductSaleDetailsByPage", criteria)

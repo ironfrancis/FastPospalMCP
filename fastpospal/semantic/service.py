@@ -10,7 +10,18 @@ from fastpospal.semantic.categories import (
     match_categories_by_keyword,
     parse_money_cell,
     pick_sales_amount_column,
+    pick_sales_profit_column,
+    pick_sales_quantity_column,
     resolve_category_id,
+)
+
+_SALE_DETAIL_SEARCH_COLS = (
+    "productName",
+    "barcode",
+    "商品名称",
+    "商品条码",
+    "categoryName",
+    "商品分类",
 )
 from fastpospal.semantic.datetime_range import days_ago_range, resolve_date_range
 from fastpospal.semantic.formatters import compact_rows, fail, ok
@@ -183,26 +194,41 @@ class PospalSemanticService:
     ) -> dict[str, Any]:
         begin, end = resolve_date_range(start_date, end_date)
         user_id = resolve_shop_id(shop_names)
+        keyword = (search or "").strip()
         result = self.raw.product_sale_summary(
             begin_datetime=begin,
             end_datetime=end,
+            keyword=keyword,
             page_index=max(1, page),
             page_size=min(max(1, size), 100),
             user_id=user_id,
         )
         items = result.get("items") or []
-        if search:
-            key = search.lower()
-            items = [
+        if keyword:
+            key = keyword.lower()
+            filtered = [
                 row
                 for row in items
-                if any(key in str(value).lower() for value in row.values())
+                if any(key in str(row.get(col, "")).lower() for col in _SALE_DETAIL_SEARCH_COLS)
             ]
+            # If client filter shrinks the page, server keyword was ignored — recompute.
+            if filtered and len(filtered) < len(items):
+                items = filtered
+                summary = self._summarize_sale_detail_items(items)
+                total = len(items)
+            else:
+                if filtered:
+                    items = filtered
+                summary = result.get("summary") or self._summarize_sale_detail_items(items)
+                total = result.get("totalRecord", len(items))
+        else:
+            summary = result.get("summary")
+            total = result.get("totalRecord", len(items))
         payload: dict[str, Any] = {
-            "total": result.get("totalRecord", len(items)),
+            "total": total,
             "page": page,
             "size": size,
-            "summary": result.get("summary"),
+            "summary": summary,
             "items": compact_rows(items) if compact else items,
         }
         return ok(payload)
@@ -287,8 +313,9 @@ class PospalSemanticService:
         sold_out: list[dict[str, Any]] = []
         skipped_no_inventory = 0
 
+        qty_col = pick_sales_quantity_column(list(items[0].keys())) if items else None
         for row in items:
-            name = row.get("商品名称") or row.get("name") or ""
+            name = row.get("商品名称") or row.get("name") or row.get("productName") or ""
             stock_raw = row.get("现有库存") or row.get("stock") or "0"
             stock_text = str(stock_raw).strip().replace("－", "-")
             if stock_text in {"", "-", "--"}:
@@ -299,7 +326,7 @@ class PospalSemanticService:
             except ValueError:
                 stock = 0.0
             try:
-                sold = float(row.get("销售数量") or 0)
+                sold = float(row.get(qty_col) or 0) if qty_col else 0.0
             except (TypeError, ValueError):
                 sold = 0.0
             if stock <= 0:
@@ -337,6 +364,44 @@ class PospalSemanticService:
             }
         )
 
+    def _summarize_sale_detail_items(self, items: list[dict[str, Any]]) -> dict[str, str]:
+        if not items:
+            return {
+                "记录数": "0",
+                "总销量": "0",
+                "总实收": "0",
+                "总利润": "0",
+            }
+        columns = list(items[0].keys())
+        qty_col = pick_sales_quantity_column(columns)
+        amount_col = pick_sales_amount_column(columns)
+        profit_col = pick_sales_profit_column(columns)
+        total_qty = 0.0
+        if qty_col:
+            for row in items:
+                try:
+                    total_qty += float(row.get(qty_col) or 0)
+                except (TypeError, ValueError):
+                    pass
+        total_amount = (
+            sum(parse_money_cell(row.get(amount_col)) for row in items) if amount_col else 0.0
+        )
+        total_profit = (
+            sum(parse_money_cell(row.get(profit_col)) for row in items) if profit_col else 0.0
+        )
+        ticket_ids = {str(row.get("流水号") or row.get("id") or "") for row in items}
+        ticket_ids.discard("")
+        summary: dict[str, str] = {
+            "记录数": str(len(items)),
+            "总单数": str(len(ticket_ids) or len(items)),
+            "总销量": _format_number(total_qty),
+            "总实收": _format_number(total_amount),
+            "总利润": _format_number(total_profit),
+        }
+        if total_amount:
+            summary["总利润率"] = f"{(total_profit / total_amount) * 100:.2f}%"
+        return summary
+
     def _aggregate_sale_items(
         self,
         items: list[dict[str, Any]],
@@ -356,7 +421,7 @@ class PospalSemanticService:
             )
 
         columns = list(items[0].keys())
-        qty_col = "销售数量" if "销售数量" in columns else None
+        qty_col = pick_sales_quantity_column(columns)
         amount_col = pick_sales_amount_column(columns)
         total_quantity = 0.0
         total_amount = None
@@ -388,3 +453,9 @@ class PospalSemanticService:
                 "top_products": top_products,
             }
         )
+
+
+def _format_number(value: float) -> str:
+    if value == int(value):
+        return str(int(value))
+    return f"{value:.2f}".rstrip("0").rstrip(".")
