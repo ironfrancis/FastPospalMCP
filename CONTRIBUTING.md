@@ -58,7 +58,14 @@ uv run python -m compileall fastpospal server.py app.py
 | `app.py` | HTTP ASGI 入口 |
 | `tests/` | 单元测试 |
 | `deploy/` | Docker / Nginx 部署示例 |
-| `scripts/` | 本地验收脚本（可选） |
+| `scripts/` | 本地验收 / Secrets 同步脚本 |
+| `.github/workflows/` | CI：测试与生产部署 |
+
+## 发布
+
+1. 配置本地 `.env`（勿提交），执行 `bash scripts/sync-gh-secrets.sh` 写入 GitHub Secrets  
+2. 合并或 push 到 `main`：Actions 会 patch bump、`docker save|ssh load`、覆盖远程 `.env` 并重启  
+3. 紧急本机发布见 `deploy/push-image.sh`（不会覆盖服务器 `.env`）
 
 ## 获取帮助
 

@@ -138,19 +138,27 @@ Agent 将自动调用对应 MCP 工具。
 4.  客户端 MCP URL 与 Nginx location 保持一致，例如
     `https://mmsd.site/pospal/mcp`。
 
-### 发布到生产
+### 发布到生产（GitHub Actions）
 
-在 `.env` 配置 `DEPLOY_HOST` / `DEPLOY_USER`（仅本机，勿提交），然后：
+主路径：push 到 `main` 后自动 **patch bump** → 构建镜像 → SSH `docker load` → **覆盖服务器 `.env`** → compose 重启。
+
+首次或密钥变更时，在本机同步 Secrets（需已 `gh auth login`）：
 
 ```bash
-bash deploy/push-image.sh
+# .env 中需有 POSPAL_*、MCP_AUTH_TOKEN、DEPLOY_HOST（及可选 DEPLOY_USER）
+# SSH 私钥默认读 ~/.ssh/id_rsa，可用 DEPLOY_SSH_KEY_FILE 覆盖
+bash scripts/sync-gh-secrets.sh
 ```
 
-脚本会：本机构建 `linux/amd64` 镜像 → SSH 上传 → 同步代码 → 重启容器 → smoke test。
+之后：
 
-临时指定服务器：`SERVER=root@your-host bash deploy/push-image.sh`
+```bash
+git push origin main
+```
 
-服务器上的 `.env` **不会**被覆盖（含 `POSPAL_*`、`MCP_AUTH_TOKEN` 等运行时配置）。
+在仓库 Actions 查看 `Deploy` workflow。手动补跑：Actions → Deploy → Run workflow。
+
+紧急本机发布（不走 CI）：`bash deploy/push-image.sh`（本机脚本**不会**覆盖服务器 `.env`）。
 
 ------------------------------------------------------------------------
 

@@ -1,0 +1,163 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: deploy-main
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.head_commit != null &&
+       !contains(github.event.head_commit.message, '[skip ci]'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install and test
+        run: |
+          uv sync
+          uv run pytest -q
+
+      - name: Bump patch version
+        id: bump
+        run: |
+          python3 <<'PY'
+          import os
+          import pathlib
+          import re
+
+          path = pathlib.Path("pyproject.toml")
+          text = path.read_text(encoding="utf-8")
+          match = re.search(r'^version\s*=\s*"(\d+)\.(\d+)\.(\d+)"', text, re.M)
+          if not match:
+              raise SystemExit("version not found in pyproject.toml")
+          major, minor, patch = map(int, match.groups())
+          new = f"{major}.{minor}.{patch + 1}"
+          updated = re.sub(
+              r'^version\s*=\s*"\d+\.\d+\.\d+"',
+              f'version = "{new}"',
+              text,
+              count=1,
+              flags=re.M,
+          )
+          path.write_text(updated, encoding="utf-8")
+          print(f"version={new}")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
+              fh.write(f"version={new}\n")
+          PY
+
+      - name: Commit version bump and tag
+        env:
+          VERSION: ${{ steps.bump.outputs.version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add pyproject.toml
+          git commit -m "chore: release v${VERSION} [skip ci]"
+          git tag "v${VERSION}"
+          git push origin "HEAD:main" --tags
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image
+        env:
+          VERSION: ${{ steps.bump.outputs.version }}
+        run: |
+          docker build \
+            --platform linux/amd64 \
+            -f deploy/Dockerfile \
+            -t "fastpospal:latest" \
+            -t "fastpospal:v${VERSION}" \
+            .
+
+      - name: Write server .env from secrets
+        env:
+          POSPAL_ACCOUNT: ${{ secrets.POSPAL_ACCOUNT }}
+          POSPAL_PASSWORD: ${{ secrets.POSPAL_PASSWORD }}
+          MCP_AUTH_TOKEN: ${{ secrets.MCP_AUTH_TOKEN }}
+          FASTMCP_HTTP_ALLOWED_HOSTS: ${{ secrets.FASTMCP_HTTP_ALLOWED_HOSTS }}
+        run: |
+          python3 <<'PY'
+          import os
+          from pathlib import Path
+
+          hosts = os.environ.get("FASTMCP_HTTP_ALLOWED_HOSTS") or '["mmsd.site"]'
+          lines = [
+              f"POSPAL_ACCOUNT={os.environ['POSPAL_ACCOUNT']}",
+              f"POSPAL_PASSWORD={os.environ['POSPAL_PASSWORD']}",
+              f"MCP_AUTH_TOKEN={os.environ['MCP_AUTH_TOKEN']}",
+              f"FASTMCP_HTTP_ALLOWED_HOSTS={hosts}",
+              "MCP_HOST=0.0.0.0",
+              "MCP_PORT=8000",
+              "FASTMCP_STATELESS_HTTP=true",
+          ]
+          Path(".env.deploy").write_text("\n".join(lines) + "\n", encoding="utf-8")
+          print("wrote .env.deploy (%d keys)" % len(lines))
+          PY
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
+
+      - name: Deploy over SSH
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          REMOTE_DIR: ${{ secrets.REMOTE_DIR }}
+        run: |
+          set -euo pipefail
+          : "${DEPLOY_HOST:?DEPLOY_HOST secret missing}"
+          DEPLOY_USER="${DEPLOY_USER:-root}"
+          REMOTE_DIR="${REMOTE_DIR:-/opt/FastPospal}"
+          SERVER="${DEPLOY_USER}@${DEPLOY_HOST}"
+
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          ssh-keyscan -H "${DEPLOY_HOST}" >> ~/.ssh/known_hosts
+
+          echo "==> Upload image"
+          docker save fastpospal:latest | gzip -1 | ssh "${SERVER}" 'gunzip | docker load'
+
+          echo "==> Sync repo (exclude .env / .venv / .git)"
+          tar czf - \
+            --exclude='.env' \
+            --exclude='.env.deploy' \
+            --exclude='.venv' \
+            --exclude='__pycache__' \
+            --exclude='.git' \
+            --exclude='._*' \
+            . \
+            | ssh "${SERVER}" "mkdir -p '${REMOTE_DIR}' && tar xzf - -C '${REMOTE_DIR}'"
+
+          echo "==> Overwrite remote .env"
+          scp .env.deploy "${SERVER}:${REMOTE_DIR}/.env"
+
+          echo "==> Restart compose"
+          ssh "${SERVER}" "cd '${REMOTE_DIR}' && docker compose -f deploy/docker-compose.prod.yml up -d"
+
+          echo "==> Smoke test"
+          ssh "${SERVER}" "docker exec fastpospal uv run python -c 'import fastpospal; print(\"ok\")'"
+
+          echo "==> Deploy complete"

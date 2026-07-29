@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
-# 本机构建 linux/amd64 镜像并推到生产服务器（推荐发布方式）
+# 紧急本机发布：构建 linux/amd64 镜像并 SSH 推到生产。
+# 主路径已改为 GitHub Actions（.github/workflows/deploy.yml）：
+#   push main → patch bump → 构建 → docker save|ssh load → 覆盖服务器 .env
+# 同步 Secrets：bash scripts/sync-gh-secrets.sh
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
