@@ -1,24 +1,22 @@
 # 外卖商品 MCP 验收报告
 
-日期：2026-08-01  
+日期：2026-08-02  
 门店：萌萌书店(关天培店) / userId=4151410 / area=47
 
-## 本地环境
+## 工具精简（本轮）
 
-- MCP HTTP：`http://127.0.0.1:8000/mcp`（`uv run python server.py`）
-- 单元测试：`uv run pytest tests/test_mcp.py` → 4 passed
-- 只读验收：`uv run python scripts/acceptance_waimai.py` → PASS=14 FAIL=0
+| 变更 | 说明 |
+|------|------|
+| 合并 list×4 | → `pospal_waimai_list_products(mapping_status=all\|mapped\|unmapped_platform\|unmapped_pospal)` |
+| 合并 mapping_summary | → 并入 `pospal_waimai_shop_status.mappingSummary` |
+| 全局 default profile | 默认 42 工具；`POSPAL_MCP_PROFILE=advanced` 为 49 |
 
-## 新增工具（15）
+## 当前外卖 MCP 工具（11）
 
 | 工具 | 类型 |
 |------|------|
-| pospal_waimai_shop_status | 读 |
-| pospal_waimai_mapping_summary | 读 |
-| pospal_waimai_list_pospal_products | 读 |
-| pospal_waimai_list_mapped_products | 读 |
-| pospal_waimai_list_unmapped_platform_products | 读 |
-| pospal_waimai_list_unmapped_pospal_products | 读 |
+| pospal_waimai_shop_status | 读（含 mappingSummary） |
+| pospal_waimai_list_products | 读 |
 | pospal_waimai_list_mapping_failures | 读 |
 | pospal_waimai_get_platform_product | 读 |
 | pospal_waimai_get_mapped_product | 读 |
@@ -29,22 +27,16 @@
 | pospal_waimai_set_shelf | 写 |
 | pospal_waimai_save_platform_product | 写（需 confirm） |
 
-## ego-browser 交叉验证
+## 验收结果（2026-08-02）
 
-| 指标 | MCP | 后台 UI（DOM） | 结果 |
-|------|-----|----------------|------|
-| 已映射 | 146 | 已映射(146) | 一致 |
-| 银豹未映射 | 10809 | 银豹未映射(10809) | 一致 |
-| 美团未映射 | 1118 | 美团未映射(1118) | 一致 |
-| 最近拉取 | 2026-08-01 11:07:22 | 拉取商品时间：2026-08-01 11:07:22 | 一致 |
-| 匹配失败 | 1 条，sku=20069177233，蓝巨人篮球 | 同左 | 一致 |
+```bash
+uv run pytest tests/ -q          # 33 passed
+uv run python scripts/acceptance_waimai.py   # PASS=24 FAIL=0
+```
 
-### 截图
-
-- `01-goods-mapping.png` — 商品映射管理（美团已映射列表）
-- `02-associa-fail.png` — 接单匹配失败明细
-- `03-associa-status.png` — 门店授权映射概览
+映射覆盖率抽样：已映射 147 / 银豹未映射 10811 / 美团未映射 1118。
 
 ## 边界
 
 不含：平台授权、余额充值、自动接单、短信提醒等运营设置。
+底层 `WaimaiService` 方法仍保留（list_mapped / mapping_summary 等），供 SDK 与验收脚本直接调用。

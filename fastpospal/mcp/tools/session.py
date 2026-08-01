@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastpospal.mcp.instance import mcp
 from fastpospal.mcp.deps import get_semantic, get_service, get_waimai
+from fastpospal.mcp.instance import mcp
+from fastpospal.mcp.profile import ADVANCED_TOOL_TAG
 
 
 @mcp.tool
@@ -15,9 +16,9 @@ def pospal_session_info() -> dict[str, Any]:
     return get_service().client.session_info()
 
 
-@mcp.tool
+@mcp.tool(tags={ADVANCED_TOOL_TAG})
 def pospal_login() -> dict[str, Any]:
-    """强制重新登录银豹云后台，刷新会话 cookie。
+    """【advanced】强制重新登录银豹云后台，刷新会话 cookie。
 
     仅在 session 失效或切换账号后使用；正常调用其它工具会自动维持登录。
     """

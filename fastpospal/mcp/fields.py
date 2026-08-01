@@ -212,3 +212,13 @@ WaimaiConfirm = Annotated[
     bool,
     Field(description="计费/写确认；拉取与创建/更新平台商品必须为 true"),
 ]
+WaimaiMappingStatus = Annotated[
+    str,
+    Field(
+        description=(
+            "映射筛选：all=银豹商品含映射状态（默认）、mapped=已映射、"
+            "unmapped_platform=平台未映射、unmapped_pospal=银豹未映射"
+        ),
+        examples=["all", "mapped", "unmapped_platform", "unmapped_pospal"],
+    ),
+]

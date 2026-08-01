@@ -15,9 +15,10 @@ from fastpospal.mcp.fields import (
     ProductUid,
     SortAsc,
 )
+from fastpospal.mcp.profile import ADVANCED_TOOL_TAG
 
 
-@mcp.tool
+@mcp.tool(tags={ADVANCED_TOOL_TAG})
 def pospal_list_stock(
     keyword: ProductKeyword = "",
     page_index: PageIndex = 1,
@@ -25,11 +26,10 @@ def pospal_list_stock(
     order_column: ProductOrderColumn = "",
     asc: SortAsc = False,
 ) -> dict[str, Any]:
-    """分页查全店库存列表（所有商品库存汇总）。
+    """【advanced】分页查全店库存列表（所有商品库存汇总）。
 
-    查单个商品库存优先 pospal_sem_check_product_stock（按名称/条码即可）。
-    排序在服务端完成：查"库存最多/最少的商品"应传 order_column="stock", asc=false/true，
-    取第一页即可，不要翻遍全部商品再本地比较。
+    查单个商品库存优先 pospal_sem_check_product_stock；浏览/排序用
+    pospal_sem_list_products_admin(order_column="stock")。
     """
     return get_service().list_stock(
         keyword=keyword,
@@ -57,16 +57,16 @@ def pospal_stock_change_history(
     )
 
 
-@mcp.tool
+@mcp.tool(tags={ADVANCED_TOOL_TAG})
 def pospal_list_stock_flows(
     begin_time: BeginTime,
     end_time: EndTime,
     page_index: PageIndex = 1,
     page_size: PageSize = 20,
 ) -> dict[str, Any]:
-    """分页查货流单（进货/出库/调拨）列表。
+    """【advanced】分页查货流单（进货/出库/调拨）列表。
 
-    时间格式 YYYY-MM-DD HH:mm:ss。语义层汇总用 pospal_sem_query_stock_flows。
+    日常库存流水优先 pospal_sem_query_stock_flows。时间 YYYY-MM-DD HH:mm:ss。
     """
     return get_service().list_stock_flows(
         begin_time=begin_time,

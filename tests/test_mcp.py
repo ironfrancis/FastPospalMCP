@@ -8,15 +8,16 @@ import pytest
 
 from fastpospal.mcp import mcp
 from fastpospal.mcp.instance import MCP_INSTRUCTIONS
+from fastpospal.mcp.profile import ADVANCED_ONLY_TOOLS, ADVANCED_TOOL_TAG
 
-EXPECTED_TOOLS = {
+# 物理注册的全部工具（含 advanced）；default profile 会隐藏 ADVANCED_ONLY_TOOLS
+REGISTERED_TOOLS = {
     "pospal_session_info",
     "pospal_login",
     "pospal_list_categories",
     "pospal_create_category",
     "pospal_update_category",
     "pospal_delete_categories",
-    "pospal_product_summary",
     "pospal_list_products",
     "pospal_get_product",
     "pospal_find_product_by_barcode",
@@ -39,10 +40,8 @@ EXPECTED_TOOLS = {
     "pospal_recharge_summary",
     "pospal_list_recharge_logs",
     "pospal_product_sale_summary",
-    "pospal_list_tickets",
     "pospal_list_eshop_orders",
     "pospal_list_product_purchases",
-    "pospal_openapi_status",
     "pospal_sem_find_products",
     "pospal_sem_check_product_stock",
     "pospal_sem_query_category_sales",
@@ -52,11 +51,7 @@ EXPECTED_TOOLS = {
     "pospal_sem_list_products_admin",
     "pospal_sem_analyze_restock_needs",
     "pospal_waimai_shop_status",
-    "pospal_waimai_mapping_summary",
-    "pospal_waimai_list_pospal_products",
-    "pospal_waimai_list_mapped_products",
-    "pospal_waimai_list_unmapped_platform_products",
-    "pospal_waimai_list_unmapped_pospal_products",
+    "pospal_waimai_list_products",
     "pospal_waimai_list_mapping_failures",
     "pospal_waimai_get_platform_product",
     "pospal_waimai_get_mapped_product",
@@ -68,34 +63,91 @@ EXPECTED_TOOLS = {
     "pospal_waimai_save_platform_product",
 }
 
+REMOVED_TOOLS = {
+    "pospal_product_summary",
+    "pospal_list_tickets",
+    "pospal_openapi_status",
+    "pospal_waimai_mapping_summary",
+    "pospal_waimai_list_pospal_products",
+    "pospal_waimai_list_mapped_products",
+    "pospal_waimai_list_unmapped_platform_products",
+    "pospal_waimai_list_unmapped_pospal_products",
+}
+
+DEFAULT_TOOLS = REGISTERED_TOOLS - ADVANCED_ONLY_TOOLS
+
 
 def _tool_map() -> dict[str, object]:
     tools = asyncio.run(mcp.list_tools())
     return {t.name: t for t in tools}
 
 
-def test_all_tools_registered():
+@pytest.fixture(autouse=True)
+def _reset_default_profile():
+    """每个用例前后回到 default（隐藏 advanced）。"""
+    mcp.disable(tags={ADVANCED_TOOL_TAG})
+    yield
+    mcp.disable(tags={ADVANCED_TOOL_TAG})
+
+
+def test_default_profile_exposes_slim_toolset():
     names = set(_tool_map())
-    assert names == EXPECTED_TOOLS
+    assert names == DEFAULT_TOOLS
+    assert ADVANCED_ONLY_TOOLS.isdisjoint(names)
+    assert REMOVED_TOOLS.isdisjoint(names)
+
+
+def test_advanced_profile_exposes_all_registered_tools():
+    mcp.enable(tags={ADVANCED_TOOL_TAG})
+    names = set(_tool_map())
+    assert names == REGISTERED_TOOLS
+    assert ADVANCED_ONLY_TOOLS.issubset(names)
+
+
+def test_registered_count_after_cleanup():
+    assert len(REGISTERED_TOOLS) == 49
+    assert len(DEFAULT_TOOLS) == 42
+    assert len(ADVANCED_ONLY_TOOLS) == 7
 
 
 def test_instructions_include_routing_guide():
-    assert "pospal_business_summary" in MCP_INSTRUCTIONS
     assert "pospal_sem_find_products" in MCP_INSTRUCTIONS
+    assert "pospal_sem_get_store_sales_summary" in MCP_INSTRUCTIONS
     assert "YYYY-MM-DD" in MCP_INSTRUCTIONS
-    assert "pospal_waimai_mapping_summary" in MCP_INSTRUCTIONS
-    assert "pospal_waimai_" in MCP_INSTRUCTIONS
+    assert "pospal_waimai_shop_status" in MCP_INSTRUCTIONS
+    assert "pospal_waimai_list_products" in MCP_INSTRUCTIONS
+    assert "POSPAL_MCP_PROFILE" in MCP_INSTRUCTIONS
+    assert "pospal_waimai_mapping_summary" not in MCP_INSTRUCTIONS
+    assert "pospal_list_tickets" not in MCP_INSTRUCTIONS
 
 
 def test_key_tools_have_descriptions():
     tools = _tool_map()
-    biz = tools["pospal_business_summary"]
-    assert biz.description
-    assert "营业额" in biz.description or "营业" in biz.description
+    sem_sales = tools["pospal_sem_get_store_sales_summary"]
+    assert sem_sales.description
+    assert "营业" in sem_sales.description or "销售" in sem_sales.description
 
     sem = tools["pospal_sem_find_products"]
     assert sem.description
     assert "推荐" in sem.description or "名称" in sem.description
+
+    waimai_list = tools["pospal_waimai_list_products"]
+    assert waimai_list.description
+    assert "mapping_status" in (waimai_list.description or "")
+
+
+def test_waimai_list_products_exposes_mapping_status():
+    tools = _tool_map()
+    schema = tools["pospal_waimai_list_products"].parameters
+    props = schema.get("properties", {})
+    assert "mapping_status" in props
+
+
+def test_shop_status_includes_source_type_param():
+    tools = _tool_map()
+    schema = tools["pospal_waimai_shop_status"].parameters
+    props = schema.get("properties", {})
+    assert "source_type" in props
 
 
 def test_semantic_tools_expose_shop_names_param():

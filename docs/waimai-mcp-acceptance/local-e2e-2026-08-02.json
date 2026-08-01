@@ -1,0 +1,240 @@
+{
+  " titlestub": "FastPospal 外卖 MCP 本地验收",
+  "when": "2026-08-02T01:57:58",
+  "endpoint": "http://127.0.0.1:8000/mcp",
+  "store": "萌萌书店(关天培店) / MEITUAN_WAIMAI",
+  "tools_available": [
+    "pospal_waimai_bind_product",
+    "pospal_waimai_get_mapped_product",
+    "pospal_waimai_get_platform_product",
+    "pospal_waimai_list_categories",
+    "pospal_waimai_list_mapped_products",
+    "pospal_waimai_list_mapping_failures",
+    "pospal_waimai_list_pospal_products",
+    "pospal_waimai_list_unmapped_platform_products",
+    "pospal_waimai_list_unmapped_pospal_products",
+    "pospal_waimai_mapping_summary",
+    "pospal_waimai_pull_products",
+    "pospal_waimai_save_platform_product",
+    "pospal_waimai_set_shelf",
+    "pospal_waimai_shop_status",
+    "pospal_waimai_unbind_product"
+  ],
+  "counts": {
+    "pass": 15,
+    "fail": 0,
+    "total": 15
+  },
+  "capabilities": {
+    "read": [
+      "pospal_waimai_shop_status",
+      "pospal_waimai_mapping_summary",
+      "pospal_waimai_list_mapping_failures",
+      "pospal_waimai_list_categories",
+      "pospal_waimai_list_pospal_products",
+      "pospal_waimai_list_mapped_products",
+      "pospal_waimai_list_unmapped_pospal_products",
+      "pospal_waimai_list_unmapped_platform_products",
+      "pospal_waimai_get_mapped_product",
+      "pospal_waimai_get_platform_product",
+      "pospal_waimai_get_mapped_product(unmapped→CREATE)"
+    ],
+    "write_verified": [
+      "pospal_waimai_save_platform_product(UPDATE 改价并恢复)"
+    ],
+    "write_guard_ok": [
+      "pospal_waimai_save_platform_product",
+      "pospal_waimai_pull_products",
+      "save UPDATE requires dishId"
+    ],
+    "write_skipped": [
+      {
+        "tool": "pospal_waimai_save_platform_product(CREATE)",
+        "reason": "会新建美团商品并可能计费，本次未实测"
+      },
+      {
+        "tool": "pospal_waimai_pull_products(confirm=True)",
+        "reason": "拉取平台商品计费，本次未实测"
+      },
+      {
+        "tool": "pospal_waimai_bind_product",
+        "reason": "会改真实映射，需指定平台SKU+条码，本次未实测"
+      },
+      {
+        "tool": "pospal_waimai_unbind_product",
+        "reason": "会解除真实映射，本次未实测"
+      },
+      {
+        "tool": "pospal_waimai_set_shelf",
+        "reason": "会改上下架状态，本次未实测"
+      }
+    ],
+    "failed": []
+  },
+  "results": [
+    {
+      "tool": "pospal_waimai_shop_status",
+      "pass": true,
+      "ms": 1280,
+      "summary": {
+        "shops": 1,
+        "sample": {
+          "sourceType": null,
+          "sourceTypeName": null,
+          "authed": null,
+          "mappingCount": null,
+          "openProductCount": null
+        }
+      },
+      "error": null
+    },
+    {
+      "tool": "pospal_waimai_mapping_summary",
+      "pass": true,
+      "ms": 1427,
+      "summary": {
+        "mappingCount": 146,
+        "notMappingCount": 10812,
+        "openNotMappingCount": 1118,
+        "lastPullTime": "2026-08-01 11:07:22"
+      },
+      "error": null
+    },
+    {
+      "tool": "pospal_waimai_list_mapping_failures",
+      "pass": true,
+      "ms": 108,
+      "summary": {
+        "total": 1,
+        "n": 1
+      },
+      "error": null
+    },
+    {
+      "tool": "pospal_waimai_list_categories",
+      "pass": true,
+      "ms": 311,
+      "summary": {
+        "total": null,
+        "n": 0
+      },
+      "error": null
+    },
+    {
+      "tool": "pospal_waimai_list_pospal_products",
+      "pass": true,
+      "ms": 383,
+      "summary": {
+        "total": 25,
+        "n": 5
+      },
+      "error": null
+    },
+    {
+      "tool": "pospal_waimai_list_mapped_products",
+      "pass": true,
+      "ms": 132,
+      "summary": {
+        "total": 14,
+        "n": 5
+      },
+      "error": null
+    },
+    {
+      "tool": "pospal_waimai_list_unmapped_pospal_products",
+      "pass": true,
+      "ms": 204,
+      "summary": {
+        "total": 25,
+        "n": 5
+      },
+      "error": null
+    },
+    {
+      "tool": "pospal_waimai_list_unmapped_platform_products",
+      "pass": true,
+      "ms": 190,
+      "summary": {
+        "total": 39,
+        "n": 5
+      },
+      "error": null
+    },
+    {
+      "tool": "pospal_waimai_get_mapped_product",
+      "pass": true,
+      "ms": 905,
+      "summary": {
+        "mode": "UPDATE",
+        "dishId": "12330057020",
+        "price": 30.0
+      },
+      "error": null
+    },
+    {
+      "tool": "pospal_waimai_get_platform_product",
+      "pass": true,
+      "ms": 421,
+      "summary": {
+        "dishId": "12330057020",
+        "name": "晨光 A4复印纸打印纸 500张/包 70gsm"
+      },
+      "error": null
+    },
+    {
+      "tool": "pospal_waimai_get_mapped_product(unmapped)",
+      "pass": true,
+      "ms": 292,
+      "summary": {
+        "mode": "CREATE",
+        "mapped": false
+      },
+      "error": null
+    },
+    {
+      "tool": "pospal_waimai_save_platform_product",
+      "pass": true,
+      "ms": 7,
+      "summary": {
+        "successed": false,
+        "error": "创建/更新外卖商品会调用平台管理接口并可能计费，请传 confirm=True 确认"
+      },
+      "error": null
+    },
+    {
+      "tool": "pospal_waimai_pull_products",
+      "pass": true,
+      "ms": 6,
+      "summary": {
+        "successed": false,
+        "error": "拉取平台商品会调用平台管理接口并可能计费，请传 confirm=True 确认"
+      },
+      "error": null
+    },
+    {
+      "tool": "pospal_waimai_save_platform_product(no dishId)",
+      "pass": true,
+      "ms": 48,
+      "summary": {
+        "error": "ToolError: Error calling tool 'pospal_waimai_save_platform_product': UPDATE 需要 dishId；请先 list_mapped_products / get_mapped_product（mode=UPDATE）再改价"
+      },
+      "error": "ToolError: Error calling tool 'pospal_waimai_save_platform_product': UPDATE 需要 dishId；请先 list_mapped_products / get_mapped_product（mode=UPDATE）再改价"
+    },
+    {
+      "tool": "pospal_waimai_save_platform_product(UPDATE price)",
+      "pass": true,
+      "ms": 4940,
+      "summary": {
+        "product": "晨光 A4复印纸打印纸 500张/包 70gsm",
+        "productUid": "306110203776410578",
+        "dishId": "12330057020",
+        "price_change": "30.0 → 29.7 → 30.0",
+        "verified_prices": [
+          29.7,
+          30.0
+        ]
+      },
+      "error": null
+    }
+  ]
+}

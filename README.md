@@ -72,6 +72,12 @@ POSPAL_PASSWORD=your_password
 
 ### 启动 MCP
 
+默认暴露精简工具集（42 个）。需要原始层重叠查询时设置：
+
+``` bash
+export POSPAL_MCP_PROFILE=advanced   # 额外暴露 login / business_summary 等
+```
+
 STDIO：
 
 ``` bash

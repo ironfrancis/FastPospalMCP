@@ -2,10 +2,71 @@
 
 from __future__ import annotations
 
-import json
 from typing import Any
 
 from fastpospal.raw.client import PospalApiError, PospalClient
+
+
+def _normalize_open_pictures(value: Any) -> str:
+    """前端提交时 openPictures 必须是逗号分隔字符串。"""
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value
+    if isinstance(value, list):
+        urls: list[str] = []
+        for item in value:
+            if isinstance(item, dict):
+                url = item.get("url") or ""
+            else:
+                url = str(item or "")
+            if url:
+                urls.append(url)
+        return ",".join(urls)
+    return str(value)
+
+
+def _normalize_open_save_request(
+    open_save_request: dict[str, Any],
+    *,
+    user_id: int,
+    source_type: str,
+    op_type: str,
+) -> dict[str, Any]:
+    """对齐银豹后台单品编辑弹窗的扁平 openSave body。"""
+    body = dict(open_save_request)
+    body["userId"] = user_id
+    body["sourceType"] = source_type
+    body["openPictures"] = _normalize_open_pictures(body.get("openPictures"))
+    body.pop("sourceTypeName", None)
+
+    skus = [dict(s) for s in (body.get("openSkuList") or [])]
+    for sku in skus:
+        # 后台编辑页提交时强制 openWeightUnit=g
+        if sku.get("openWeight") is not None or sku.get("openWeightUnit"):
+            sku["openWeightUnit"] = "g"
+    body["openSkuList"] = skus
+
+    if op_type == "UPDATE":
+        if not body.get("dishId"):
+            raise PospalApiError(
+                "UPDATE 需要 dishId；请先 list_mapped_products / get_mapped_product（mode=UPDATE）再改价"
+            )
+        if "openSkuUpdateList" not in body and "openSkuAddList" not in body:
+            updates: list[dict[str, Any]] = []
+            adds: list[dict[str, Any]] = []
+            for sku in skus:
+                if sku.get("dishSkuId"):
+                    updates.append(sku)
+                else:
+                    adds.append(sku)
+            body["openSkuUpdateList"] = updates
+            body["openSkuAddList"] = adds
+        body.setdefault("productAttributePackageAddList", [])
+        body.setdefault("productAttributePackageDeleteList", [])
+        body.setdefault("productAttributePackageUpdateList", [])
+
+    return body
 
 # 常用平台枚举（与后台 sourceType 一致）
 SOURCE_TYPES = {
@@ -90,8 +151,9 @@ class WaimaiService:
             "sourceType": source_type,
             "curPage": page_index,
             "pageSize": page_size,
-            "keyword": keyword,
         }
+        if keyword:
+            payload["keyWordSearch"] = keyword
         if cat_id:
             payload["catId"] = cat_id
         if mapping_status is not None:
@@ -127,9 +189,9 @@ class WaimaiService:
             "pageSize": page_size,
         }
         if keyword:
-            payload["keyword"] = keyword
+            payload["keyWordSearch"] = keyword
         if open_keyword:
-            payload["openKeyword"] = open_keyword
+            payload["openKeyWordSearch"] = open_keyword
         resp = _unwrap(self.client.waimai_post("/waimai/dish/bindNormalList", payload))
         page = resp.get("result") or {}
         return {
@@ -160,8 +222,7 @@ class WaimaiService:
             "pageSize": page_size,
         }
         if keyword:
-            payload["keyword"] = keyword
-            payload["openKeyword"] = keyword
+            payload["openKeyWordSearch"] = keyword
         resp = _unwrap(self.client.waimai_post("/waimai/dish/unbindOpenList", payload))
         page = resp.get("result") or {}
         return {
@@ -192,7 +253,7 @@ class WaimaiService:
             "pageSize": page_size,
         }
         if keyword:
-            payload["keyword"] = keyword
+            payload["keyWordSearch"] = keyword
         resp = _unwrap(self.client.waimai_post("/waimai/dish/unbindNormalList", payload))
         page = resp.get("result") or {}
         return {
@@ -239,17 +300,24 @@ class WaimaiService:
         dish_id: str,
         source_type: str = "MEITUAN_WAIMAI",
         user_id: int | None = None,
+        dish_sku_id: str = "",
+        product_uid: str = "",
     ) -> dict[str, Any]:
-        """平台商品详情（含 SKU）。"""
+        """平台商品详情（含 SKU）。编辑已上架商品时用此接口。"""
         uid = self._uid(user_id)
-        resp = _unwrap(
-            self.client.waimai_post(
-                "/waimai/dish/openProductDetails",
-                {"userId": uid, "sourceType": source_type, "dishId": dish_id},
-            )
-        )
+        payload: dict[str, Any] = {
+            "userId": uid,
+            "sourceType": source_type,
+            "dishId": dish_id,
+        }
+        if dish_sku_id:
+            payload["dishSkuId"] = dish_sku_id
+        if product_uid:
+            payload["productUid"] = product_uid
+        resp = _unwrap(self.client.waimai_post("/waimai/dish/openProductDetails", payload))
         return {
             "successed": True,
+            "mode": "UPDATE",
             "product": resp.get("result") or {},
         }
 
@@ -259,10 +327,28 @@ class WaimaiService:
         product_uid: str,
         source_type: str = "MEITUAN_WAIMAI",
         user_id: int | None = None,
+        dish_id: str = "",
+        dish_sku_id: str = "",
     ) -> dict[str, Any]:
-        """已映射商品详情（银豹 productUid → 平台详情）。"""
+        """按银豹 productUid 取外卖商品详情。
+
+        - 已映射：返回 openProductDetails（含 dishId，可供 UPDATE）
+        - 未映射：返回 productDetails 创建模板（mode=CREATE），不可直接 UPDATE
+        """
         uid = self._uid(user_id)
-        resp = _unwrap(
+
+        # 若调用方已知 dishId，直接走编辑详情
+        if dish_id:
+            return self.get_platform_product(
+                dish_id=dish_id,
+                source_type=source_type,
+                user_id=uid,
+                dish_sku_id=dish_sku_id,
+                product_uid=product_uid,
+            )
+
+        # 先取创建模板，并从 SKU 条码反查是否已映射
+        create_resp = _unwrap(
             self.client.waimai_post(
                 "/waimai/dish/productDetails",
                 {
@@ -272,9 +358,58 @@ class WaimaiService:
                 },
             )
         )
+        create_product = create_resp.get("result") or {}
+        barcodes: list[str] = []
+        for sku in create_product.get("openSkuList") or []:
+            code = sku.get("eDishSkuId") or sku.get("barcode") or ""
+            if code:
+                barcodes.append(str(code).split("#")[0])
+
+        mapped_row: dict[str, Any] | None = None
+        for code in barcodes:
+            page = self.list_mapped_products(
+                source_type=source_type,
+                keyword=code,
+                page_index=1,
+                page_size=20,
+                user_id=uid,
+            )
+            for row in page.get("products") or []:
+                if str(row.get("productUid") or "") == str(product_uid):
+                    mapped_row = row
+                    break
+            if mapped_row:
+                break
+
+        if not mapped_row:
+            return {
+                "successed": True,
+                "mode": "CREATE",
+                "mapped": False,
+                "hint": "该银豹商品尚未映射到外卖平台；可用 op_type=CREATE 创建，或先 mapping_bind。不要对缺 dishId 的模板做 UPDATE。",
+                "product": create_product,
+            }
+
+        detail = self.get_platform_product(
+            dish_id=str(mapped_row.get("dishId") or ""),
+            source_type=source_type,
+            user_id=uid,
+            dish_sku_id=str(mapped_row.get("dishSkuId") or ""),
+            product_uid=str(product_uid),
+        )
         return {
             "successed": True,
-            "product": resp.get("result") or {},
+            "mode": "UPDATE",
+            "mapped": True,
+            "mapping": {
+                "dishId": mapped_row.get("dishId"),
+                "dishSkuId": mapped_row.get("dishSkuId"),
+                "productUid": mapped_row.get("productUid"),
+                "barcode": mapped_row.get("barcode") or mapped_row.get("eDishSkuId"),
+                "openProductName": mapped_row.get("openProductName"),
+                "openPrice": mapped_row.get("openPrice"),
+            },
+            "product": detail.get("product") or {},
         }
 
     def list_pos_categories(self, *, user_id: int | None = None) -> dict[str, Any]:
@@ -460,8 +595,8 @@ class WaimaiService:
     ) -> dict[str, Any]:
         """创建或更新平台商品（计费接口）。
 
-        open_save_request 为平台侧商品 DTO（字段因平台而异）。
-        推荐先用 get_platform_product / get_mapped_product_details 取现有结构再改。
+        单品创建/编辑走扁平 body（与后台编辑弹窗一致），不要包 openSaveRequestDTOMap。
+        推荐：get_mapped_product / get_platform_product → 改价 → save(confirm=True)。
         """
         if not confirm:
             return {
@@ -471,22 +606,18 @@ class WaimaiService:
         if op_type not in ("CREATE", "UPDATE"):
             raise PospalApiError("op_type 只能是 CREATE 或 UPDATE")
         uid = self._uid(user_id)
-        dto_map = {source_type: open_save_request}
-        # 后台期望 map 值为 JSON 字符串
-        payload = {
-            "openSaveRequestDTOMap": {
-                k: (v if isinstance(v, str) else json.dumps(v, ensure_ascii=False))
-                for k, v in dto_map.items()
-            },
-            "originUserId": uid,
-            "targetUserIds": [uid],
-            "opType": op_type,
-        }
+        payload = _normalize_open_save_request(
+            open_save_request,
+            user_id=uid,
+            source_type=source_type,
+            op_type=op_type,
+        )
         resp = _unwrap(self.client.waimai_post("/waimai/dish/openSave", payload))
         return {
             "successed": True,
             "userId": uid,
             "sourceType": source_type,
             "opType": op_type,
+            "dishId": payload.get("dishId"),
             "result": resp.get("result"),
         }

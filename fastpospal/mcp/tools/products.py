@@ -15,27 +15,10 @@ from fastpospal.mcp.fields import (
     ProductOrderColumn,
     SortAsc,
 )
+from fastpospal.mcp.profile import ADVANCED_TOOL_TAG
 
 
-@mcp.tool
-def pospal_product_summary(
-    keyword: ProductKeyword = "",
-    enable: ProductEnable = "1",
-) -> dict[str, Any]:
-    """统计商品数量（totalRecord）。
-
-    keyword 支持条码/名称/拼音码筛选；enable：1=启用, 0=禁用。
-    仅需数量时用本工具；需列表详情用 pospal_list_products 或 pospal_sem_find_products。
-    """
-    result = get_service().product_summary(keyword=keyword, enable=enable)
-    return {
-        "successed": result.get("successed"),
-        "totalRecord": result.get("totalRecord", 0),
-        "keyword": keyword,
-    }
-
-
-@mcp.tool
+@mcp.tool(tags={ADVANCED_TOOL_TAG})
 def pospal_list_products(
     keyword: ProductKeyword = "",
     page_index: PageIndex = 1,
@@ -44,12 +27,11 @@ def pospal_list_products(
     order_column: ProductOrderColumn = "",
     asc: SortAsc = False,
 ) -> dict[str, Any]:
-    """分页查询商品列表（原始层，含完整字段）。
+    """【advanced】分页查询商品列表（原始层，含完整字段）。
 
-    返回 products 数组与 totalRecord。按名称/条码模糊查找优先 pospal_sem_find_products；
+    日常搜索优先 pospal_sem_find_products；管理员浏览用 pospal_sem_list_products_admin。
     已知 productId 查详情用 pospal_get_product。
-    排序在服务端完成：查"库存最多/最少的商品"应传 order_column="stock"，取第一页即可，
-    不要翻遍全部商品再本地比较。
+    排序在服务端完成：查"库存最多/最少的商品"应传 order_column="stock"，取第一页即可。
     """
     return get_service().list_products(
         keyword=keyword,
@@ -70,11 +52,11 @@ def pospal_get_product(product_id: ProductId) -> dict[str, Any]:
     return get_service().get_product(product_id)
 
 
-@mcp.tool
+@mcp.tool(tags={ADVANCED_TOOL_TAG})
 def pospal_find_product_by_barcode(barcode: Barcode) -> dict[str, Any]:
-    """按条码精确查商品详情（原始层）。
+    """【advanced】按条码精确查商品详情（原始层完整 JSON）。
 
-    需完整条码。按名称模糊搜索请用 pospal_sem_find_products。
+    日常按名称/条码搜索请用 pospal_sem_find_products。
     """
     return get_service().find_product_by_barcode(barcode)
 
