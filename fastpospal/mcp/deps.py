@@ -5,6 +5,7 @@ from functools import lru_cache
 
 from fastpospal.client import PospalClient
 from fastpospal.openapi import PospalOpenApiClient
+from fastpospal.raw.waimai import WaimaiService
 from fastpospal.service import PospalService
 from fastpospal.semantic.service import PospalSemanticService
 
@@ -18,6 +19,11 @@ def get_service() -> PospalService:
     client = PospalClient(account=account, password=password)
     client.login()
     return PospalService(client)
+
+
+@lru_cache(maxsize=1)
+def get_waimai() -> WaimaiService:
+    return WaimaiService(get_service().client)
 
 
 @lru_cache(maxsize=1)

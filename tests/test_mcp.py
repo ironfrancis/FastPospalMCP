@@ -51,6 +51,21 @@ EXPECTED_TOOLS = {
     "pospal_sem_query_stock_flows",
     "pospal_sem_list_products_admin",
     "pospal_sem_analyze_restock_needs",
+    "pospal_waimai_shop_status",
+    "pospal_waimai_mapping_summary",
+    "pospal_waimai_list_pospal_products",
+    "pospal_waimai_list_mapped_products",
+    "pospal_waimai_list_unmapped_platform_products",
+    "pospal_waimai_list_unmapped_pospal_products",
+    "pospal_waimai_list_mapping_failures",
+    "pospal_waimai_get_platform_product",
+    "pospal_waimai_get_mapped_product",
+    "pospal_waimai_list_categories",
+    "pospal_waimai_bind_product",
+    "pospal_waimai_unbind_product",
+    "pospal_waimai_pull_products",
+    "pospal_waimai_set_shelf",
+    "pospal_waimai_save_platform_product",
 }
 
 
@@ -68,6 +83,8 @@ def test_instructions_include_routing_guide():
     assert "pospal_business_summary" in MCP_INSTRUCTIONS
     assert "pospal_sem_find_products" in MCP_INSTRUCTIONS
     assert "YYYY-MM-DD" in MCP_INSTRUCTIONS
+    assert "pospal_waimai_mapping_summary" in MCP_INSTRUCTIONS
+    assert "pospal_waimai_" in MCP_INSTRUCTIONS
 
 
 def test_key_tools_have_descriptions():

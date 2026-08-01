@@ -8,4 +8,5 @@ from fastpospal.mcp.tools import (  # noqa: F401
     semantic,
     session,
     stock,
+    waimai,
 )

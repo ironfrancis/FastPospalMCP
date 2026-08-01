@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from fastpospal.mcp.instance import mcp
-from fastpospal.mcp.deps import get_service
+from fastpospal.mcp.deps import get_semantic, get_service, get_waimai
 
 
 @mcp.tool
@@ -22,4 +22,6 @@ def pospal_login() -> dict[str, Any]:
     仅在 session 失效或切换账号后使用；正常调用其它工具会自动维持登录。
     """
     get_service.cache_clear()
+    get_waimai.cache_clear()
+    get_semantic.cache_clear()
     return get_service().client.login(force=True)

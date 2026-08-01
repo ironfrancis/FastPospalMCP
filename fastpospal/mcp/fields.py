@@ -177,3 +177,38 @@ PaymentMethod = Annotated[
     str,
     Field(description="充值支付方式筛选；留空查全部"),
 ]
+
+# ── 外卖平台商品 ──────────────────────────────────────────
+
+WaimaiSourceType = Annotated[
+    str,
+    Field(
+        description=(
+            "外卖平台：MEITUAN_WAIMAI=美团外卖（默认）、MEITUAN_PINHAOFAN=美团拼好饭、"
+            "ELEME_WAIMAI=淘宝闪购、ELEME_PINTUAN=淘宝闪购爆品团、ELEBE_WAIMAI=饿百零售、"
+            "JDDJ_MIAOSONG=京东秒送、DOUYIN_WAIMAI=抖音随心团、DOUYIN_HOUR=抖音小时达；"
+            "部分查询工具留空表示全平台"
+        ),
+        examples=["MEITUAN_WAIMAI", "ELEBE_WAIMAI"],
+    ),
+]
+WaimaiDishId = Annotated[
+    str,
+    Field(description="平台商品 spu/dishId，来自映射列表或平台未映射列表"),
+]
+WaimaiDishSkuId = Annotated[
+    str,
+    Field(description="平台规格 sku_id（dishSkuId），映射绑定的主键"),
+]
+WaimaiOpenStatus = Annotated[
+    int,
+    Field(description="平台上下架状态：1=上架，0=下架", ge=0, le=1),
+]
+WaimaiOpType = Annotated[
+    str,
+    Field(description="平台商品保存类型：CREATE=创建，UPDATE=更新"),
+]
+WaimaiConfirm = Annotated[
+    bool,
+    Field(description="计费/写确认；拉取与创建/更新平台商品必须为 true"),
+]

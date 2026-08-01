@@ -65,6 +65,20 @@ class PospalClient:
             raise PospalAuthError("尚未登录，请先调用 login()")
         return self.store_host
 
+    @property
+    def area(self) -> str:
+        """从 store_host 解析机房编号，如 beta47.pospal.cn → 47。"""
+        if not self.store_host:
+            raise PospalAuthError("尚未登录，请先调用 login()")
+        match = re.search(r"(\d+)\.pospal\.cn", self.store_host)
+        if not match:
+            raise PospalApiError(f"无法从 store_host 解析 area: {self.store_host}")
+        return match.group(1)
+
+    @property
+    def waimai_host(self) -> str:
+        return f"https://waimai-api{self.area}.pospal.cn"
+
     def _cookie_snapshot(self) -> list[dict[str, str]]:
         snapshot: list[dict[str, str]] = []
         for cookie in self._client.cookies.jar:
@@ -229,6 +243,63 @@ class PospalClient:
             return response.json()
         except json.JSONDecodeError as exc:
             raise PospalApiError(f"JSON 解析失败: {text[:200]}") from exc
+
+    def waimai_post(
+        self,
+        path: str,
+        data: dict[str, Any] | None = None,
+        *,
+        params: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """调用外卖平台 API（POST JSON，复用登录 Cookie）。
+
+        path 示例：/waimai/dish/mappingCount
+        宿主：https://waimai-api{area}.pospal.cn
+        """
+        self.ensure_login()
+        url = f"{self.waimai_host}{path}"
+        response = self._client.post(
+            url,
+            params=params,
+            json=data or {},
+            headers={
+                "Content-Type": "application/json;charset=UTF-8",
+                "Accept": "application/json, text/plain, */*",
+                "Origin": f"https://waimai-product-manage{self.area}.pospal.cn",
+                "Referer": f"https://waimai-product-manage{self.area}.pospal.cn/",
+            },
+        )
+        text = response.text.strip()
+        if text.startswith("<"):
+            if "website.account.login.js" in text or "/Account/Signin" in text:
+                self.login(force=True)
+                response = self._client.post(
+                    url,
+                    params=params,
+                    json=data or {},
+                    headers={
+                        "Content-Type": "application/json;charset=UTF-8",
+                        "Accept": "application/json, text/plain, */*",
+                        "Origin": f"https://waimai-product-manage{self.area}.pospal.cn",
+                        "Referer": f"https://waimai-product-manage{self.area}.pospal.cn/",
+                    },
+                )
+                text = response.text.strip()
+            if text.startswith("<"):
+                raise PospalApiError(f"外卖 API 非 JSON 响应 ({response.status_code}): {text[:200]}")
+        try:
+            payload: Any = response.json()
+        except json.JSONDecodeError as exc:
+            raise PospalApiError(f"外卖 API JSON 解析失败: {text[:200]}") from exc
+        # 部分接口会二次 JSON 编码成字符串
+        if isinstance(payload, str):
+            try:
+                payload = json.loads(payload)
+            except json.JSONDecodeError:
+                return {"status": "error", "messages": [payload], "errorCode": -1}
+        if not isinstance(payload, dict):
+            return {"status": "success", "result": payload, "errorCode": 0}
+        return payload
 
     def get_store_name(self) -> str | None:
         """从 Dashboard 页面解析当前门店名称。"""
